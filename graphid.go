@@ -17,11 +17,18 @@ type GraphId struct {
 	b []byte
 }
 
+var nullGraphId = GraphId{}
+
 var graphIdRegexp = regexp.MustCompile(`^(\d+)\.(\d+)$`)
 
 // NewGraphId returns GraphId of str if str is between "1.1" and
-// "65535.281474976710656". Otherwise, it returns error.
+// "65535.281474976710656". If str is "NULL", it returns GraphId whose Valid is
+// false. Otherwise, it returns error.
 func NewGraphId(str string) (GraphId, error) {
+	if str == "NULL" {
+		return nullGraphId, nil
+	}
+
 	m := graphIdRegexp.FindStringSubmatch(str)
 	if m == nil {
 		return GraphId{}, fmt.Errorf("bad graphid representation: %q", str)

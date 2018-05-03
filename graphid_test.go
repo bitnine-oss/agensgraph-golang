@@ -10,6 +10,7 @@ func TestNewGraphId(t *testing.T) {
 		str string
 		ok  bool
 	}{
+		{"NULL", true},
 		{"-1.0", false},
 		{"0.-1", false},
 		{"0.0", false},
@@ -46,9 +47,9 @@ func TestGraphIdEqual(t *testing.T) {
 		y     GraphId
 		equal bool
 	}{
-		{GraphId{}, GraphId{}, false},
-		{GraphId{}, mustNewGraphId("1.1"), false},
-		{mustNewGraphId("1.1"), GraphId{}, false},
+		{mustNewGraphId("NULL"), mustNewGraphId("NULL"), false},
+		{mustNewGraphId("NULL"), mustNewGraphId("1.1"), false},
+		{mustNewGraphId("1.1"), mustNewGraphId("NULL"), false},
 		{mustNewGraphId("1.1"), mustNewGraphId("1.1"), true},
 		{mustNewGraphId("65535.281474976710655"), mustNewGraphId("65535.281474976710655"), true},
 		{mustNewGraphId("1.1"), mustNewGraphId("65535.281474976710655"), false},
