@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-
-	"github.com/lib/pq"
 )
 
 // Array returns Scanner and Valuer for arr that is an array or a slice of
@@ -15,11 +13,12 @@ func Array(arr interface{}) interface {
 	driver.Valuer
 } {
 	switch arr := arr.(type) {
-	case []GraphId:
-		return pq.GenericArray{arr}
 	case *[]GraphId:
-		return pq.GenericArray{arr}
+		return (*graphIdArray)(arr)
+	case []GraphId:
+		return (*graphIdArray)(&arr)
+
 	default:
-		panic(fmt.Errorf("unexpected type %T for Array", arr))
+		panic(fmt.Errorf("%T not supported", arr))
 	}
 }

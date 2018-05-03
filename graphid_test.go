@@ -1,6 +1,7 @@
 package ag
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"testing"
 )
@@ -94,15 +95,24 @@ func TestGraphIdScanDuplicate(t *testing.T) {
 
 func TestGraphIdArrayScan(t *testing.T) {
 	tests := []struct {
-		src  []byte
+		src  interface{}
 		gids []GraphId
 	}{
 		{
-			[]byte("{1.1,65535.281474976710655}"),
+			[]byte("{NULL,1.1,65535.281474976710655}"),
 			[]GraphId{
+				mustNewGraphId("NULL"),
 				mustNewGraphId("1.1"),
 				mustNewGraphId("65535.281474976710655"),
 			},
+		},
+		{
+			[]byte("{}"),
+			[]GraphId{},
+		},
+		{
+			nil,
+			nil,
 		},
 	}
 	for _, c := range tests {
@@ -121,8 +131,11 @@ func TestGraphIdArrayScan(t *testing.T) {
 
 	EqualLoop:
 		for i, gid := range gids {
+			if !gid.Valid && !c.gids[i].Valid {
+				continue
+			}
 			if !gid.Equal(c.gids[i]) {
-				t.Errorf("got %s, want %s", gid, c.gids[i])
+				t.Errorf("got %q, want %q", gid, c.gids[i])
 				break EqualLoop
 			}
 		}
@@ -136,10 +149,15 @@ func TestGraphIdArrayValue(t *testing.T) {
 	}{
 		{
 			[]GraphId{
+				mustNewGraphId("NULL"),
 				mustNewGraphId("1.1"),
 				mustNewGraphId("65535.281474976710655"),
 			},
-			`{"1.1","65535.281474976710655"}`,
+			[]byte("{NULL,1.1,65535.281474976710655}"),
+		},
+		{
+			[]GraphId{},
+			[]byte("{}"),
 		},
 		{
 			nil,
@@ -158,13 +176,13 @@ func TestGraphIdArrayValue(t *testing.T) {
 				t.Errorf("error expected for %v", c.gids)
 			}
 		} else {
-			s, ok := val.(string)
+			b, ok := val.([]byte)
 			if !ok {
-				t.Errorf("got %T, want string", val)
+				t.Errorf("got %T, want []byte", val)
 				continue
 			}
-			if s != c.val.(string) {
-				t.Errorf("got %s, want %s", s, c.val.(string))
+			if !bytes.Equal(b, c.val.([]byte)) {
+				t.Errorf("got %q, want %q", string(b), string(c.val.([]byte)))
 			}
 		}
 	}
@@ -187,7 +205,7 @@ func TestServerGraphId(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !gid.Valid {
-		t.Fatal("got NULL, want Valid GraphId")
+		t.Error("got NULL, want Valid GraphId")
 	}
 
 	var cnt int64
@@ -197,6 +215,30 @@ func TestServerGraphId(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cnt != 1 {
-		t.Errorf("got %d, want 1", cnt)
+		t.Errorf("got %d, want %d", cnt, 1)
+	}
+
+	gids := []GraphId{mustNewGraphId("1.1"), mustNewGraphId("NULL"), mustNewGraphId("65535.281474976710655")}
+	var gidsOut []GraphId
+	err = db.QueryRow(`SELECT $1::_graphid`, Array(gids)).Scan(Array(&gidsOut))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, gid := range gidsOut {
+		if !gid.Valid && !gids[i].Valid {
+			continue
+		}
+		if !gid.Equal(gids[i]) {
+			t.Errorf("got %q, want %q", gid, gids[i])
+			break
+		}
+	}
+
+	err = db.QueryRow(`SELECT NULL::_graphid`).Scan(Array(&gidsOut))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gidsOut != nil {
+		t.Errorf("got %v, want nil", gidsOut)
 	}
 }

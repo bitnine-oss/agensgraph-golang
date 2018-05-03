@@ -94,3 +94,79 @@ func (gid GraphId) Value() (driver.Value, error) {
 		return nil, nil
 	}
 }
+
+type graphIdArray []GraphId
+
+// separated by comma (see graphid in pg_type.h)
+const graphIdDelim = byte(054)
+
+var graphIdNullValue = []byte("NULL")
+
+func (a *graphIdArray) Scan(src interface{}) error {
+	if src == nil {
+		*a = nil
+		return nil
+	}
+
+	b, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("invalid type for _graphid: %T", src)
+	}
+
+	// remove surrounding braces
+	b = b[1 : len(b)-1]
+
+	// bytes.Split() returns [][]byte{[]byte{}} even if len(b) < 1.
+	// In this case, return empty []GraphId to distinguish between NULL and
+	// empty _graphid.
+	if len(b) < 1 {
+		*a = []GraphId{}
+		return nil
+	}
+
+	sa := bytes.Split(b, []byte{graphIdDelim})
+
+	gids := make([]GraphId, len(sa))
+	for i, s := range sa {
+		if bytes.Equal(s, graphIdNullValue) {
+			gids[i] = nullGraphId
+			continue
+		}
+
+		err := gids[i].Scan(s)
+		if err != nil {
+			return errors.New("bad _graphid representation: " + err.Error())
+		}
+	}
+
+	*a = gids
+	return nil
+}
+
+func (a graphIdArray) Value() (driver.Value, error) {
+	if a == nil {
+		return nil, nil
+	}
+
+	if n := len(a); n > 0 {
+		// '{' + "d.d,"*n - ',' + '}' = 1+4*n-1+1 = 4*n+1
+		b := make([]byte, 1, 4*n+1)
+		b[0] = byte('{')
+		for i, gid := range a {
+			if i > 0 {
+				b = append(b, graphIdDelim)
+			}
+			val, _ := gid.Value()
+			if val == nil {
+				b = append(b, graphIdNullValue...)
+			} else {
+				b = append(b, val.([]byte)...)
+			}
+		}
+		b = append(b, '}')
+
+		return b, nil
+	}
+
+	return []byte("{}"), nil
+}
