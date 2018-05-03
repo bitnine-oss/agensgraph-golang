@@ -3,6 +3,7 @@ package ag
 import (
 	"bytes"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -18,7 +19,7 @@ type GraphId struct {
 
 var graphIdRegexp = regexp.MustCompile(`^(\d+)\.(\d+)$`)
 
-// NewGraphId returns GraphId of str if str is between "0.0" and
+// NewGraphId returns GraphId of str if str is between "1.1" and
 // "65535.281474976710656". Otherwise, it returns error.
 func NewGraphId(str string) (GraphId, error) {
 	m := graphIdRegexp.FindStringSubmatch(str)
@@ -26,16 +27,20 @@ func NewGraphId(str string) (GraphId, error) {
 		return GraphId{}, fmt.Errorf("bad graphid representation: %q", str)
 	}
 
-	var err error
-
-	_, err = strconv.ParseUint(m[1], 10, 16)
+	i, err := strconv.ParseUint(m[1], 10, 16)
 	if err != nil {
-		return GraphId{}, fmt.Errorf("invalid label ID: %s", err)
+		return GraphId{}, errors.New("invalid label ID: " + err.Error())
+	}
+	if i == 0 {
+		return GraphId{}, fmt.Errorf("invalid label ID: %d", i)
 	}
 
-	_, err = strconv.ParseUint(m[2], 10, 48)
+	i, err = strconv.ParseUint(m[2], 10, 48)
 	if err != nil {
-		return GraphId{}, fmt.Errorf("invalid local ID: %s", err)
+		return GraphId{}, errors.New("invalid local ID: " + err.Error())
+	}
+	if i == 0 {
+		return GraphId{}, fmt.Errorf("invalid local ID: %d", i)
 	}
 
 	return GraphId{true, []byte(str)}, nil

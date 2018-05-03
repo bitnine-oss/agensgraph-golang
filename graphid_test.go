@@ -7,12 +7,13 @@ import (
 
 func TestNewGraphId(t *testing.T) {
 	tests := []struct {
-		str   string
-		valid bool
+		str string
+		ok  bool
 	}{
 		{"-1.0", false},
 		{"0.-1", false},
-		{"0.0", true},
+		{"0.0", false},
+		{"1.1", true},
 		{"65535.281474976710655", true},
 		{"65536.281474976710655", false},
 		{"65535.281474976710656", false},
@@ -20,11 +21,11 @@ func TestNewGraphId(t *testing.T) {
 	for _, c := range tests {
 		_, err := NewGraphId(c.str)
 		if err == nil {
-			if !c.valid {
+			if !c.ok {
 				t.Errorf("error expected for %q", c.str)
 			}
 		} else {
-			if c.valid {
+			if c.ok {
 				t.Error(err)
 			}
 		}
@@ -46,11 +47,11 @@ func TestGraphIdEqual(t *testing.T) {
 		equal bool
 	}{
 		{GraphId{}, GraphId{}, false},
-		{GraphId{}, mustNewGraphId("0.0"), false},
-		{mustNewGraphId("0.0"), GraphId{}, false},
-		{mustNewGraphId("0.0"), mustNewGraphId("0.0"), true},
+		{GraphId{}, mustNewGraphId("1.1"), false},
+		{mustNewGraphId("1.1"), GraphId{}, false},
+		{mustNewGraphId("1.1"), mustNewGraphId("1.1"), true},
 		{mustNewGraphId("65535.281474976710655"), mustNewGraphId("65535.281474976710655"), true},
-		{mustNewGraphId("0.0"), mustNewGraphId("65535.281474976710655"), false},
+		{mustNewGraphId("1.1"), mustNewGraphId("65535.281474976710655"), false},
 	}
 	for _, c := range tests {
 		if c.x.Equal(c.y) != c.equal {
@@ -71,28 +72,16 @@ func TestGraphIdScanNil(t *testing.T) {
 }
 
 func TestGraphIdScanType(t *testing.T) {
-	var src interface{}
+	src := 0
 	var gid GraphId
-	var err error
-
-	src = 0
-	err = gid.Scan(src)
+	err := gid.Scan(src)
 	if err == nil {
 		t.Errorf("error expected for %T", src)
-	}
-
-	src = []byte{}
-	err = gid.Scan(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !gid.Valid {
-		t.Errorf("got %s, want %q", gid, string(src.([]byte)))
 	}
 }
 
 func TestGraphIdScanDuplicate(t *testing.T) {
-	src := []byte("0.0")
+	src := []byte("1.1")
 
 	var gid GraphId
 	_ = gid.Scan(src)
@@ -108,9 +97,9 @@ func TestGraphIdArrayScan(t *testing.T) {
 		gids []GraphId
 	}{
 		{
-			[]byte("{0.0,65535.281474976710655}"),
+			[]byte("{1.1,65535.281474976710655}"),
 			[]GraphId{
-				mustNewGraphId("0.0"),
+				mustNewGraphId("1.1"),
 				mustNewGraphId("65535.281474976710655"),
 			},
 		},
@@ -146,10 +135,10 @@ func TestGraphIdArrayValue(t *testing.T) {
 	}{
 		{
 			[]GraphId{
-				mustNewGraphId("0.0"),
+				mustNewGraphId("1.1"),
 				mustNewGraphId("65535.281474976710655"),
 			},
-			`{"0.0","65535.281474976710655"}`,
+			`{"1.1","65535.281474976710655"}`,
 		},
 		{
 			nil,
