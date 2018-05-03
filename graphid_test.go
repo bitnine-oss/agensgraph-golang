@@ -2,34 +2,21 @@ package ag
 
 import (
 	"bytes"
-	"database/sql/driver"
 	"testing"
 )
 
-func TestNewGraphId(t *testing.T) {
-	tests := []struct {
-		str string
-		ok  bool
-	}{
-		{"NULL", true},
-		{"-1.0", false},
-		{"0.-1", false},
-		{"0.0", false},
-		{"1.1", true},
-		{"65535.281474976710655", true},
-		{"65536.281474976710655", false},
-		{"65535.281474976710656", false},
+func TestNewGraphIdError(t *testing.T) {
+	tests := []string{
+		"",
+		"0.1",
+		"1.0",
+		"65536.281474976710655",
+		"65535.281474976710656",
 	}
-	for _, c := range tests {
-		_, err := NewGraphId(c.str)
+	for _, s := range tests {
+		_, err := NewGraphId(s)
 		if err == nil {
-			if !c.ok {
-				t.Errorf("error expected for %q", c.str)
-			}
-		} else {
-			if c.ok {
-				t.Error(err)
-			}
+			t.Errorf("error expected for %q", s)
 		}
 	}
 }
@@ -48,16 +35,15 @@ func TestGraphIdEqual(t *testing.T) {
 		y     GraphId
 		equal bool
 	}{
-		{mustNewGraphId("NULL"), mustNewGraphId("NULL"), false},
 		{mustNewGraphId("NULL"), mustNewGraphId("1.1"), false},
 		{mustNewGraphId("1.1"), mustNewGraphId("NULL"), false},
 		{mustNewGraphId("1.1"), mustNewGraphId("1.1"), true},
-		{mustNewGraphId("65535.281474976710655"), mustNewGraphId("65535.281474976710655"), true},
 		{mustNewGraphId("1.1"), mustNewGraphId("65535.281474976710655"), false},
 	}
 	for _, c := range tests {
-		if c.x.Equal(c.y) != c.equal {
-			t.Errorf("got %q.Equal(%q) == %t, want %t", c.x, c.y, c.x.Equal(c.y), c.equal)
+		equal := c.x.Equal(c.y)
+		if equal != c.equal {
+			t.Errorf("got %q.Equal(%q) == %t, want %t", c.x, c.y, equal, c.equal)
 		}
 	}
 }
@@ -93,32 +79,43 @@ func TestGraphIdScanDuplicate(t *testing.T) {
 	}
 }
 
-func TestGraphIdArrayScan(t *testing.T) {
-	tests := []struct {
-		src  interface{}
-		gids []GraphId
-	}{
-		{
-			[]byte("{NULL,1.1,65535.281474976710655}"),
-			[]GraphId{
-				mustNewGraphId("NULL"),
-				mustNewGraphId("1.1"),
-				mustNewGraphId("65535.281474976710655"),
-			},
-		},
-		{
-			[]byte("{}"),
-			[]GraphId{},
-		},
-		{
-			nil,
-			nil,
-		},
+func TestGraphIdArrayScanType(t *testing.T) {
+	src := 0
+	var gids []GraphId
+	a := Array(&gids)
+	err := a.Scan(src)
+	if err == nil {
+		t.Errorf("error expected for %T", src)
 	}
-	for _, c := range tests {
+}
+
+var graphIdArrayTests = []struct {
+	val  interface{}
+	gids []GraphId
+}{
+	{
+		[]byte("{NULL,1.1,65535.281474976710655}"),
+		[]GraphId{
+			mustNewGraphId("NULL"),
+			mustNewGraphId("1.1"),
+			mustNewGraphId("65535.281474976710655"),
+		},
+	},
+	{
+		[]byte("{}"),
+		[]GraphId{},
+	},
+	{
+		nil,
+		nil,
+	},
+}
+
+func TestGraphIdArrayScan(t *testing.T) {
+	for _, c := range graphIdArrayTests {
 		var gids []GraphId
 		a := Array(&gids)
-		err := a.Scan(c.src)
+		err := a.Scan(c.val)
 		if err != nil {
 			t.Error(err)
 			continue
@@ -143,28 +140,7 @@ func TestGraphIdArrayScan(t *testing.T) {
 }
 
 func TestGraphIdArrayValue(t *testing.T) {
-	tests := []struct {
-		gids []GraphId
-		val  driver.Value
-	}{
-		{
-			[]GraphId{
-				mustNewGraphId("NULL"),
-				mustNewGraphId("1.1"),
-				mustNewGraphId("65535.281474976710655"),
-			},
-			[]byte("{NULL,1.1,65535.281474976710655}"),
-		},
-		{
-			[]GraphId{},
-			[]byte("{}"),
-		},
-		{
-			nil,
-			nil,
-		},
-	}
-	for _, c := range tests {
+	for _, c := range graphIdArrayTests {
 		val, err := Array(c.gids).Value()
 		if err != nil {
 			t.Error(err)
@@ -218,7 +194,7 @@ func TestServerGraphId(t *testing.T) {
 		t.Errorf("got %d, want %d", cnt, 1)
 	}
 
-	gids := []GraphId{mustNewGraphId("1.1"), mustNewGraphId("NULL"), mustNewGraphId("65535.281474976710655")}
+	gids := []GraphId{mustNewGraphId("NULL"), mustNewGraphId("1.1"), mustNewGraphId("65535.281474976710655")}
 	var gidsOut []GraphId
 	err = db.QueryRow(`SELECT $1::_graphid`, Array(gids)).Scan(Array(&gidsOut))
 	if err != nil {
