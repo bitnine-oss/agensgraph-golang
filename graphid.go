@@ -23,34 +23,43 @@ var graphIdRegexp = regexp.MustCompile(`^(\d+)\.(\d+)$`)
 
 // NewGraphId returns GraphId of str if str is between "1.1" and
 // "65535.281474976710656". If str is "NULL", it returns GraphId whose Valid is
-// false. Otherwise, it returns error.
+// false. Otherwise, it returns an error.
 func NewGraphId(str string) (GraphId, error) {
 	if str == "NULL" {
 		return nullGraphId, nil
 	}
 
+	err := validateGraphId(str)
+	if err != nil {
+		return GraphId{}, err
+	}
+
+	return GraphId{true, []byte(str)}, nil
+}
+
+func validateGraphId(str string) error {
 	m := graphIdRegexp.FindStringSubmatch(str)
 	if m == nil {
-		return GraphId{}, fmt.Errorf("bad graphid representation: %q", str)
+		return fmt.Errorf("bad graphid representation: %q", str)
 	}
 
 	i, err := strconv.ParseUint(m[1], 10, 16)
 	if err != nil {
-		return GraphId{}, errors.New("invalid label ID: " + err.Error())
+		return errors.New("invalid label ID: " + err.Error())
 	}
 	if i == 0 {
-		return GraphId{}, fmt.Errorf("invalid label ID: %d", i)
+		return fmt.Errorf("invalid label ID: %d", i)
 	}
 
 	i, err = strconv.ParseUint(m[2], 10, 48)
 	if err != nil {
-		return GraphId{}, errors.New("invalid local ID: " + err.Error())
+		return errors.New("invalid local ID: " + err.Error())
 	}
 	if i == 0 {
-		return GraphId{}, fmt.Errorf("invalid local ID: %d", i)
+		return fmt.Errorf("invalid local ID: %d", i)
 	}
 
-	return GraphId{true, []byte(str)}, nil
+	return nil
 }
 
 // Equal reports whether gid and x are the same GraphId.
@@ -78,11 +87,18 @@ func (gid *GraphId) Scan(src interface{}) error {
 
 	b, ok := src.([]byte)
 	if !ok {
-		return fmt.Errorf("invalid type for graphid: %T", src)
+		return fmt.Errorf("invalid source for graphid: %T", src)
+	}
+	if len(b) < 1 {
+		return fmt.Errorf("invalid source for graphid: %v", b)
 	}
 
-	gid.b = append([]byte(nil), b...)
-	gid.Valid = true
+	err := validateGraphId(string(b))
+	if err != nil {
+		return err
+	}
+
+	gid.Valid, gid.b = true, append([]byte(nil), b...)
 	return nil
 }
 
@@ -98,9 +114,7 @@ func (gid GraphId) Value() (driver.Value, error) {
 type graphIdArray []GraphId
 
 // separated by comma (see graphid in pg_type.h)
-const graphIdDelim = byte(054)
-
-var graphIdNullValue = []byte("NULL")
+const graphIdSeparator = byte(054)
 
 func (a *graphIdArray) Scan(src interface{}) error {
 	if src == nil {
@@ -110,7 +124,10 @@ func (a *graphIdArray) Scan(src interface{}) error {
 
 	b, ok := src.([]byte)
 	if !ok {
-		return fmt.Errorf("invalid type for _graphid: %T", src)
+		return fmt.Errorf("invalid source for _graphid: %T", src)
+	}
+	if len(b) < 1 {
+		return fmt.Errorf("invalid source for _graphid: %v", b)
 	}
 
 	// remove surrounding braces
@@ -124,11 +141,11 @@ func (a *graphIdArray) Scan(src interface{}) error {
 		return nil
 	}
 
-	sa := bytes.Split(b, []byte{graphIdDelim})
+	ss := bytes.Split(b, []byte{graphIdSeparator})
 
-	gids := make([]GraphId, len(sa))
-	for i, s := range sa {
-		if bytes.Equal(s, graphIdNullValue) {
+	gids := make([]GraphId, len(ss))
+	for i, s := range ss {
+		if bytes.Equal(s, nullElementValue) {
 			gids[i] = nullGraphId
 			continue
 		}
@@ -152,15 +169,15 @@ func (a graphIdArray) Value() (driver.Value, error) {
 		// '{' + "d.d,"*n - ',' + '}' = 1+4*n-1+1 = 4*n+1
 		b := make([]byte, 1, 4*n+1)
 		b[0] = byte('{')
-		for i, gid := range a {
+		for i := 0; i < n; i++ {
 			if i > 0 {
-				b = append(b, graphIdDelim)
+				b = append(b, graphIdSeparator)
 			}
-			val, _ := gid.Value()
-			if val == nil {
-				b = append(b, graphIdNullValue...)
-			} else {
+			if a[i].Valid {
+				val, _ := a[i].Value()
 				b = append(b, val.([]byte)...)
+			} else {
+				b = append(b, nullElementValue...)
 			}
 		}
 		b = append(b, '}')

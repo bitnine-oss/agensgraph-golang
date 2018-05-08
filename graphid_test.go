@@ -52,9 +52,8 @@ func TestGraphIdScanNil(t *testing.T) {
 	var gid GraphId
 	err := gid.Scan(nil)
 	if err != nil {
-		t.Fatal(err)
-	}
-	if gid.Valid {
+		t.Error(err)
+	} else if gid.Valid {
 		t.Errorf("got %q, want NULL", gid)
 	}
 }
@@ -65,6 +64,15 @@ func TestGraphIdScanType(t *testing.T) {
 	err := gid.Scan(src)
 	if err == nil {
 		t.Errorf("error expected for %T", src)
+	}
+}
+
+func TestGraphIdScanZero(t *testing.T) {
+	var src interface{} = []byte(nil)
+	var gid GraphId
+	err := gid.Scan(src)
+	if err == nil {
+		t.Errorf("error expected for %v", src)
 	}
 }
 
@@ -121,19 +129,18 @@ func TestGraphIdArrayScan(t *testing.T) {
 			continue
 		}
 
-		if len(gids) != len(c.gids) {
-			t.Errorf("got len(gids) == %d, want %d", len(gids), len(c.gids))
+		if n, cn := len(gids), len(c.gids); n != cn {
+			t.Errorf("got len(gids) == %d, want %d", n, cn)
 			continue
 		}
 
-	EqualLoop:
 		for i, gid := range gids {
 			if !gid.Valid && !c.gids[i].Valid {
 				continue
 			}
 			if !gid.Equal(c.gids[i]) {
 				t.Errorf("got %q, want %q", gid, c.gids[i])
-				break EqualLoop
+				break
 			}
 		}
 	}
@@ -157,8 +164,8 @@ func TestGraphIdArrayValue(t *testing.T) {
 				t.Errorf("got %T, want []byte", val)
 				continue
 			}
-			if !bytes.Equal(b, c.val.([]byte)) {
-				t.Errorf("got %q, want %q", string(b), string(c.val.([]byte)))
+			if cb := c.val.([]byte); !bytes.Equal(b, cb) {
+				t.Errorf("got %q, want %q", b, cb)
 			}
 		}
 	}
@@ -178,43 +185,41 @@ func TestServerGraphId(t *testing.T) {
 	var gid GraphId
 	err = db.QueryRow(`MATCH (n:gid) RETURN id(n)`).Scan(&gid)
 	if err != nil {
-		t.Fatal(err)
-	}
-	if !gid.Valid {
-		t.Error("got NULL, want Valid GraphId")
+		t.Error(err)
+	} else if !gid.Valid {
+		t.Errorf("got NULL, want Valid %T", gid)
 	}
 
 	var cnt int64
 	q := `MATCH (n:gid) WHERE id(n) = $1 RETURN count(*)`
 	err = db.QueryRow(q, gid).Scan(&cnt)
 	if err != nil {
-		t.Fatal(err)
-	}
-	if cnt != 1 {
+		t.Error(err)
+	} else if cnt != 1 {
 		t.Errorf("got %d, want %d", cnt, 1)
 	}
 
 	gids := []GraphId{mustNewGraphId("NULL"), mustNewGraphId("1.1"), mustNewGraphId("65535.281474976710655")}
 	var gidsOut []GraphId
 	err = db.QueryRow(`SELECT $1::_graphid`, Array(gids)).Scan(Array(&gidsOut))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, gid := range gidsOut {
-		if !gid.Valid && !gids[i].Valid {
-			continue
+	if err == nil {
+		for i, gid := range gidsOut {
+			if !gid.Valid && !gids[i].Valid {
+				continue
+			}
+			if !gid.Equal(gids[i]) {
+				t.Errorf("got %q, want %q", gid, gids[i])
+				break
+			}
 		}
-		if !gid.Equal(gids[i]) {
-			t.Errorf("got %q, want %q", gid, gids[i])
-			break
-		}
+	} else {
+		t.Error(err)
 	}
 
 	err = db.QueryRow(`SELECT NULL::_graphid`).Scan(Array(&gidsOut))
 	if err != nil {
-		t.Fatal(err)
-	}
-	if gidsOut != nil {
+		t.Error(err)
+	} else if gidsOut != nil {
 		t.Errorf("got %v, want nil", gidsOut)
 	}
 }
