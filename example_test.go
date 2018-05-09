@@ -14,13 +14,14 @@ type knows struct {
 		null bool
 		id   ag.GraphId
 	}
-	who  ag.GraphId
-	whom ag.GraphId
-	body struct {
-		Type  string
-		Since json.RawMessage
-	}
+	who   ag.GraphId
+	whom  ag.GraphId
 	since yearMonth
+}
+
+type knowsBody struct {
+	Type  string
+	Since json.RawMessage
 }
 
 type yearMonth struct {
@@ -54,26 +55,27 @@ func (e *knows) SaveEntity(valid bool, core interface{}) error {
 }
 
 func (e *knows) SaveProperties(b []byte) error {
-	err := json.Unmarshal(b, &e.body)
+	var body knowsBody
+	err := json.Unmarshal(b, &body)
 	if err != nil {
 		return err
 	}
 
-	switch e.body.Type {
+	switch body.Type {
 	case "array":
 		var ym [2]int
-		err = json.Unmarshal(e.body.Since, &ym)
+		err = json.Unmarshal(body.Since, &ym)
 		if err != nil {
 			return err
 		}
 		e.since.Year, e.since.Month = ym[0], ym[1]
 	case "object":
-		err := json.Unmarshal(e.body.Since, &e.since)
+		err := json.Unmarshal(body.Since, &e.since)
 		if err != nil {
 			return err
 		}
 	default:
-		log.Panicf("unknown body type: %q", e.body.Type)
+		log.Panicf("unknown body type: %q", body.Type)
 	}
 
 	return nil
