@@ -75,3 +75,13 @@ func ExampleArray_basicEdge() {
 		// An error occurred or the _edge is NULL
 	}
 }
+
+func ExampleBasicPath_Scan() {
+	var p ag.BasicPath
+	err := db.QueryRow(`MATCH p=(:v)-[:e]->(:v)-[:e]->(:v) RETURN p LIMIT 1`).Scan(&p)
+	if err == nil && p.Valid {
+		// Valid graphpath
+	} else {
+		// An error occurred or the graphpath is NULL
+	}
+}

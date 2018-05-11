@@ -89,7 +89,6 @@ func readEdgeElements(b []byte) ([]interface{}, error) {
 func readEdgeElement(b []byte) (advance int, data *entityData, err error) {
 	if bytes.HasPrefix(b, nullElementValue) {
 		advance = len(nullElementValue)
-		data = nil
 		return
 	}
 
@@ -119,8 +118,7 @@ type EdgeHeader struct {
 	EdgeCore      // EdgeCore is valid only if Valid is true
 }
 
-// SaveEntity implements EntitySaver interface. If valid is false, the value of
-// EdgeCore is invalid.
+// SaveEntity implements EntitySaver interface.
 func (h *EdgeHeader) SaveEntity(valid bool, core interface{}) error {
 	h.Valid = valid
 	if !valid {

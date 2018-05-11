@@ -77,7 +77,6 @@ func readVertexElements(b []byte) ([]interface{}, error) {
 func readVertexElement(b []byte) (advance int, data *entityData, err error) {
 	if bytes.HasPrefix(b, nullElementValue) {
 		advance = len(nullElementValue)
-		data = nil
 		return
 	}
 
@@ -107,8 +106,7 @@ type VertexHeader struct {
 	VertexCore      // VertexCore is valid only if Valid is true
 }
 
-// SaveEntity implements EntitySaver interface. If valid is false, the value of
-// VertexCore is invalid.
+// SaveEntity implements EntitySaver interface.
 func (h *VertexHeader) SaveEntity(valid bool, core interface{}) error {
 	h.Valid = valid
 	if !valid {
