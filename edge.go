@@ -151,7 +151,7 @@ func (h *EdgeHeader) SaveEntity(valid bool, core interface{}) error {
 	return nil
 }
 
-// BasicEdge can be used to scan the value from the database driver as a edge.
+// BasicEdge can be used to scan the value from the database driver as an edge.
 //
 // This is a reference implementation of an entity for edge using all the basic
 // building blocks(Edge, EdgeCore, EdgeHeader, EntitySaver, PropertiesSaver,
