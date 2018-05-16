@@ -118,7 +118,7 @@ func (a elementArray) Scan(src interface{}) error {
 		return fmt.Errorf("invalid source for %s: %T", rt, src)
 	}
 	if len(b) < 1 {
-		return fmt.Errorf("invalid source for %s: %v", b)
+		return fmt.Errorf("invalid source for %s: %v", rt, b)
 	}
 
 	reader := reflect.Zero(rte).Interface().(elementsReader)
