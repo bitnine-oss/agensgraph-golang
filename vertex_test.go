@@ -207,13 +207,4 @@ func TestServerVertex(t *testing.T) {
 	} else if n := len(vs); n != 2 {
 		t.Errorf("got len(vs) == %d, want 2", n)
 	}
-
-	err = db.QueryRow(`SELECT ARRAY[NULL]::_vertex`).Scan(Array(&vs))
-	if err != nil {
-		t.Error(err)
-	} else if vs == nil {
-		t.Errorf("got nil, want non-NULL %T", vs)
-	} else if vs[0].Valid {
-		t.Errorf("got %v, want NULL", vs[0])
-	}
 }

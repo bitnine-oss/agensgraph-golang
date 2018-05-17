@@ -206,15 +206,6 @@ func TestServerGraphId(t *testing.T) {
 		t.Errorf("got NULL, want Valid %T", gid)
 	}
 
-	var cnt int64
-	q := `MATCH (n:gid) WHERE id(n) = $1 RETURN count(*)`
-	err = db.QueryRow(q, gid).Scan(&cnt)
-	if err != nil {
-		t.Error(err)
-	} else if cnt != 1 {
-		t.Errorf("got %d, want %d", cnt, 1)
-	}
-
 	gids := []GraphId{mustNewGraphId("NULL"), mustNewGraphId("1.1"), mustNewGraphId("65535.281474976710655")}
 	var gidsOut []GraphId
 	err = db.QueryRow(`SELECT $1::_graphid`, Array(gids)).Scan(Array(&gidsOut))
