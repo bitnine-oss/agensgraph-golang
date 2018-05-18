@@ -53,13 +53,18 @@ func NewGraphId(str string) (GraphId, error) {
 	return GraphId{true, []byte(str)}, nil
 }
 
+const (
+	labelBit = 16
+	localBit = 48
+)
+
 func validateGraphId(str string) error {
 	m := graphIdRegexp.FindStringSubmatch(str)
 	if m == nil {
 		return fmt.Errorf("bad graphid representation: %q", str)
 	}
 
-	i, err := strconv.ParseUint(m[1], 10, 16)
+	i, err := strconv.ParseUint(m[1], 10, labelBit)
 	if err != nil {
 		return errors.New("invalid label ID: " + err.Error())
 	}
@@ -67,7 +72,7 @@ func validateGraphId(str string) error {
 		return fmt.Errorf("invalid label ID: %d", i)
 	}
 
-	i, err = strconv.ParseUint(m[2], 10, 48)
+	i, err = strconv.ParseUint(m[2], 10, localBit)
 	if err != nil {
 		return errors.New("invalid local ID: " + err.Error())
 	}
