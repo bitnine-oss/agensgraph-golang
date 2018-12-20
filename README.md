@@ -12,4 +12,4 @@ For the server test, the environment variables listed at [here](https://www.post
 
 ## License
 
-Go driver support for AgensGraph is licensed under the GNU Affero General Public License.
+Go driver support for AgensGraph is licensed under the Apache License, Version 2.0.
